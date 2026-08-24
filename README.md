@@ -19,7 +19,7 @@ Network Traffic Analysis: Wireshark (operations and detailed packet inspection) 
 
 2. Development.
 
-##2.1 Preparation - Tools and artefacts.
+2.1 Preparation - Tools and artefacts.
 Task 1: Artefact Preparation and Integrity Verification
 
 Before launching the investigation, it is critical in digital forensics to prepare the environment and verify the integrity of all collected evidence. Verifying files via cryptographic hashes ensures the artefacts have not been altered or corrupted during acquisition or analysis, guaranteeing data authenticity throughout the Incident Response lifecycle.
@@ -38,8 +38,11 @@ Type Description: Sysmon Event Logs
 SHA-256 Hash Value:
 665DC3519C2C235188201B5A8594FEA205C3BCBC75193363B87D2837ACA3C91F
 
-###Artefact File: windows.evtx
+Artefact File: windows.evtx
 Type Description: Windows Event Logs
 SHA-256 Hash Value:
 D0279D5292BC5B25595115032820C978838678F4333B725998CFE9253E186D60
+
+<img width="603" height="244" alt="Screen Shot 2026-08-24 at 17 14 09" src="https://github.com/user-attachments/assets/844ba6d9-100a-4b36-b1d4-c975702e9417" />
+
 
