@@ -47,11 +47,16 @@ D0279D5292BC5B25595115032820C978838678F4333B725998CFE9253E186D60
 <img width="603" height="244" alt="Screen Shot 2026-08-24 at 17 14 09" src="https://github.com/user-attachments/assets/844ba6d9-100a-4b36-b1d4-c975702e9417" />
 
 2.2 Toolset Overview & Log Parsing Execution.
+
 To process the forensic evidence effectively, a dedicated suite of endpoint and network analysis tools was deployed. Specialized utilities from Eric Zimmerman's EZTools suite were leveraged to convert raw Event Logs into easily filterable structured data.
+
 Endpoint Analysis Suite: EvtxEcmd, Timeline Explorer, SysmonView, Event Viewer.
 Network Analysis Suite: Wireshark, Brim.
+
 EVTX Log Parsing with EvtxEcmd & Timeline Explorer
+
 Raw Windows Event Logs (.evtx) were parsed into CSV format to enable rapid filtering, sorting, and timeline analysis within Timeline Explorer.
+
 EvtxEcmd Execution:
 Command Executed: .\EvtxECmd.exe -f 'C:\Users\user\Desktop\Incident Files\sysmon.evtx' --csv 'C:\Users\user\Desktop\Incident Files' --csvf sysmon.csv
 Result: Successfully parsed 2,559 event log records from sysmon.evtx into sysmon.csv in 14.52 seconds.
