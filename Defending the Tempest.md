@@ -5,6 +5,7 @@ Report Introduction - Defending the Tempest: SOC Log Analysis and Incident Respo
 This report documents the investigation and forensic analysis conducted in the Tempest challenge, part of the SOC Level 1 Capstone Challenges module of TryHackMe. The main objective of this exercise is to simulate a real Incident Response (IR) investigation, analyzing the complete attack chain executed against a compromised workstation.
 As a member of the Incident Response team, the mission consisted of examining the artifacts collected from the affected asset—including endpoint logs and network traffic captures—in order to reconstruct the chronology of events, identify the origin of the threat, the vectors of compromise, and the extent of the malicious actions performed by the attacker.
 
+
 1.1 Scope and Environment of Investigation
 The analysis was conducted directly in a controlled environment based on the meticulously correlated examination of network and system data.
 Affected Asset: Tempest workstation (Windows operating system).
@@ -44,5 +45,25 @@ SHA-256 Hash Value:
 D0279D5292BC5B25595115032820C978838678F4333B725998CFE9253E186D60
 
 <img width="603" height="244" alt="Screen Shot 2026-08-24 at 17 14 09" src="https://github.com/user-attachments/assets/844ba6d9-100a-4b36-b1d4-c975702e9417" />
+
+2.2 Toolset Overview & Log Parsing Execution.
+To process the forensic evidence effectively, a dedicated suite of endpoint and network analysis tools was deployed. Specialized utilities from Eric Zimmerman's EZTools suite were leveraged to convert raw Event Logs into easily filterable structured data.
+Endpoint Analysis Suite: EvtxEcmd, Timeline Explorer, SysmonView, Event Viewer.
+Network Analysis Suite: Wireshark, Brim.
+EVTX Log Parsing with EvtxEcmd & Timeline Explorer
+Raw Windows Event Logs (.evtx) were parsed into CSV format to enable rapid filtering, sorting, and timeline analysis within Timeline Explorer.
+EvtxEcmd Execution:
+Command Executed: .\EvtxECmd.exe -f 'C:\Users\user\Desktop\Incident Files\sysmon.evtx' --csv 'C:\Users\user\Desktop\Incident Files' --csvf sysmon.csv
+Result: Successfully parsed 2,559 event log records from sysmon.evtx into sysmon.csv in 14.52 seconds.
+
+Parsed Event Metrics:
+Event ID 1 (Process Creation): 238
+Event ID 3 (Network Connection): 92
+Event ID 11 (File Created): 1,024
+Event ID 12/13 (Registry Object/Value Modifications): 1,055
+Event ID 22 (DNSEvent): 136
+
+<img width="603" height="415" alt="Screen Shot 2026-08-24 at 17 21 17" src="https://github.com/user-attachments/assets/b7dc4322-b047-4ad3-9bcb-d1eb7b792e28" />
+
 
 
