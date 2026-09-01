@@ -435,18 +435,159 @@ After the account creation, the attacker executed a technique to establish persi
 
 3. Conclusion
 
-The fact that the challenge had been completed showed how essential the technical and analytical skills are for work at Level 1 in a SOC. It became clear from the experience that an analyst's role extends well beyond the interpretation of automated alerts, since it also involves adopting a structured investigative approach in order to reconstruct the attack timeline (Kill Chain), identify the root cause, and take agile containment actions to reduce the impact on the organisation
+3.1 How did the attacker gain initial access?
+The initial access vector used by the attacker was a targeted phishing campaign:
 
-3.1 Key Lessons Learned
+Document Download: The user downloaded a malicious Microsoft Word document titled free_magicules.doc via Google Chrome.
 
-    Systemic Analysis and Log Correlation: Efficient threat identification depends on the ability to correlate events from different sources (network logs, SIEM, endpoints, and firewalls) rather than analyzing isolated data.
 
-    Importance of Context and Reduction of False Positives: Understanding traffic patterns and expected network behavior is crucial for quickly differentiating malicious behavior from legitimate anomalous activity.
+Vulnerability Exploitation (Follina): Upon opening the file with Microsoft Word (WINWORD.EXE, running under PID 496), the document triggered the Remote Code Execution (RCE) vulnerability exploit known as Follina (CVE-2022-30190). This flaw abuses the ms-msdt: protocol handler, utilizing the legitimate Windows utility msdt.exe to bypass macro execution restrictions.
 
-    Agility in Containment: The time between detection and isolation of the attack vector is crucial for limiting lateral movement or exfiltration of sensitive data.
 
-    Rigorous Documentation: Building clear and detailed reports during the incident ensures that the response team (SOC/Incident Response) and managers accurately understand the entry vector, the impacted systems, and the recommended mitigation steps.
 
+Payload Execution: The msdt.exe utility executed a PowerShell command containing a Base64-obfuscated string. Once decoded, the instruction revealed a command that used the certutil.exe utility to download a second-stage malicious binary (first.exe) hosted on the domain phishteam.xyz.
+
+
+3.2 Which endpoint was compromised first?
+The primary compromised endpoint was the Windows workstation named TEMPEST, directly impacting the local domain user account TEMPEST\benimaru.
+
+3.3 Which credentials were used or compromised?
+
+Benimaru's Credentials: During the file system discovery phase, the attacker located a sensitive script on the user's desktop named C:\Users\Benimaru\Desktop\automation.ps1.
+
+
+Exposed Password: The script contained the credentials for user TEMPEST\benimaru exposed in cleartext, revealing the password infernotempest.
+
+
+Utilization: The attacker used this legitimate password to administratively authenticate to the endpoint via the Windows Remote Management (WinRM) service on port 5985.
+
+
+3.4 Was there execution of PowerShell, Bash, or other Living-off-the-Land techniques?
+Yes. The attacker heavily utilized Living-off-the-Land (LotL) techniques, abusing legitimate Windows system utilities to evade traditional security tools:
+
+msdt.exe (Microsoft Support Diagnostic Tool): Abused via the ms-msdt: protocol to invoke the command interpreter without triggering macro alerts.
+
+
+PowerShell (powershell.exe): Used to execute embedded Base64-obfuscated scripts, download additional tools, and query account privileges.
+
+
+certutil.exe: Administrative tool used with the parameters -urlcache -split -f to download external malicious artifacts, bypassing standard network controls.
+
+
+netstat.exe: Executed (netstat -ano -p tcp) to map active connections and listening ports on the machine.
+
+
+
+whoami.exe: Abused with the /priv flag to audit local privileges of the current account.
+
+
+wsmprovhost.exe: Legitimate system process spawned on the system to host the remote PowerShell session initiated by the attacker via WinRM.
+
+
+net.exe (and net1.exe): Used for creating local accounts (net user) and manipulating local security groups.
+
+
+sc.exe (Service Control): Used to register a persistent system service.
+
+
+3.5 Did the adversary perform lateral movement?
+There was no compromise of other internal machines on the network described within the scope, but the attacker performed remote administrative access (lateral movement of control) back into the TEMPEST machine itself in an evasive manner:
+
+The attacker deployed the Chisel tunneling tool (saved as ch.exe) to establish a reverse SOCKS proxy that directed internal network traffic back to the attacker's IP (167.71.199.191:8080).
+
+
+With the SOCKS channel established and the cleartext credentials mined (infernotempest), the attacker connected from the outside in using the administrative WinRM protocol (port 5985), gaining an interactive command shell.
+
+
+3.6 What artifacts remain on the compromised systems?
+The following malicious artifacts were persisted or left on the machine and must be cleaned up:
+
+Malicious Files and Binaries:
+
+The vector document: C:\Users\benimaru\Downloads\free_magicules.doc
+
+
+The primary C2 (Nim): C:\Users\Public\Downloads\first.exe (SHA256: CE278CA242AA2023A4FE03630A9D3B6)
+
+
+The Chisel executable: C:\Users\benimaru\Downloads\ch.exe (SHA256: 8A99353662CCAE117D2BB22EFD8C43D7169060450BE413AF763E8AD7522D2451)
+
+The PrintSpoofer utility: C:\Users\benimaru\Downloads\spf.exe (SHA256: 8524FBC0D73E711E69D60C64F1F1B7BEF35C986705880643DD4D5E17779E586D)
+
+
+The elevated secondary C2 (SYSTEM): C:\ProgramData\final.exe
+
+
+Possible remnants of the download/extraction script for the compressed file update.zip in the user's Startup directory.
+
+
+System Persistence and Accounts:
+
+An auto-start Windows service named TempestUpdate2, configured to point directly to C:\ProgramData\final.exe.
+
+
+Fraududently created user accounts: shuna and shion.
+
+
+Association of the shion account with the local Administrators group.
+
+
+3.7 What evidence needs to be preserved?
+For forensic integrity and chain of custody purposes, the following original evidence files must be preserved along with their respective SHA-256 hashes:
+
+Network Traffic: capture.pcapng (SHA-256: CB3A1E6ACFB246F256FBFEFDB6F494941AA30A5A7C3F5258C3E63CFA27A23DC6)
+
+
+Sysmon Logs: sysmon.evtx (SHA-256: 665DC3519C2C235188201B5A8594FEA205C3BCBC75193363B87D2837ACA3C91F)
+
+
+Windows Event Logs: windows.evtx (SHA-256: D0279D5292BC5B25595115032820C978838678F4333B725998CFE9253E186D60)
+
+
+Endpoint Files: The original automation.ps1 script on the desktop (containing the exposed credentials) and all copies of the attack binaries listed in the previous item for reverse engineering analysis.
+
+
+3.8 What actually happened during the incident? (Timeline)
+The attack against host TEMPEST followed a structured intrusion chain (Cyber Kill Chain):
+
+Initial Compromise: User benimaru executed the file free_magicules.doc. Leveraging the Follina vulnerability, Microsoft Word invoked msdt.exe to run a hidden PowerShell command that used certutil.exe to download the C2 agent first.exe from the malicious domain phishteam.xyz.
+
+
+Stage 2 C2: The first.exe binary (developed in the Nim programming language) established communications over port 80 with the C2 server at resolvecyber.xyz. It sent the output of executed commands back to the server in Base64-encoded format via the q URL parameter.
+
+
+Credential Theft and Tunneling: The attacker conducted local discovery on the system and read the file C:\Users\Benimaru\Desktop\automation.ps1, discovering the cleartext password infernotempest. To administratively access the host from outside the network, the attacker initiated a SOCKS reverse proxy using Chisel (ch.exe) directed to the attacker's IP.
+
+
+WinRM Login: Through Chisel's encrypted channel, the attacker used benimaru's harvested credentials to authenticate to the machine's WinRM service (port 5985), which spawned the wsmprovhost.exe process.
+
+
+Privilege Escalation (SYSTEM): Once inside the administrative session, the attacker transferred the spf.exe utility (PrintSpoofer). They exploited SeImpersonatePrivilege to duplicate the local system security token and execute a new elevated payload, final.exe, with full NT AUTHORITY\SYSTEM privileges. This new backdoor established persistent SYSTEM-level connections with the attacker's server on port 8080.
+
+
+Actions on Objectives: With full control and SYSTEM privileges on the machine, the attacker created two local user accounts (shion and shuna). Although the first attempt failed due to the missing /add parameter in the Windows command utility, the accounts were eventually created successfully (logging Event ID 4720), and shion was added to the local Administrators group (logging Event ID 4732). Finally, the persistent service TempestUpdate2 was registered to ensure that the final.exe backdoor launched automatically upon every system boot.
+
+
+Based on the practical investigation of the TEMPEST case, the main takeaways and consolidated key learnings were:
+
+The Analyst's Investigative Role: It became evident that a security analyst's role extends far beyond merely interpreting automated alerts generated by defense systems. Adopting 
+
+a structured investigative approach is indispensable to chronologically reconstruct the attack chain (Cyber Kill Chain), identify the root cause of the compromise, and execute rapid containment actions to mitigate impact on the organization.
+
+
+Systemic Event Correlation: The efficient detection and identification of complex threats depend directly on the ability to correlate logs from various sources (network traffic, SIEM, endpoints, and firewalls), moving beyond isolated data analysis.
+
+
+Context and False Positive Reduction: Understanding standard behavior and expected traffic flows within the corporate network is essential for swiftly and accurately distinguishing genuinely malicious activity from legitimate system anomalies.
+
+
+Critical Importance of Response Time: The time window between identifying a threat and isolating the attack vector is the most critical factor in preventing an attacker from pivoting laterally or exfiltrating confidential data.
+
+
+Rigor in Forensic Documentation: Creating detailed, structured reports during the incident response process is vital to ensuring that both technical teams (SOC/Incident Response) and management understand with precision the entry vector used, the extent of damage on impacted systems, and the necessary mitigation recommendations.
+
+
+In summary, the project demonstrates that a successful incident response requires the analyst to combine technical precision in deep artifact analysis (such as event logs and network captures) with agility and clarity in documentation to safeguard the corporate environment.
 
 
 
